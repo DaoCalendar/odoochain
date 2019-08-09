@@ -303,7 +303,6 @@ class ProductTemplate(models.Model):
             'price': price,
             'list_price': list_price,
             'has_discounted_price': has_discounted_price,
-            # 'tx_id': display_tx_id,
         }
 
     @api.multi

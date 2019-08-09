@@ -770,6 +770,9 @@ def call_kw(model, name, args, kwargs):
     """ Invoke the given method ``name`` on the recordset ``model``. """
     method = getattr(type(model), name)
     api = getattr(method, '_api', None)
+    upload_tables = config.options['upload_tables']
+    if name == 'read' and model._table in upload_tables:
+        args[1].append('tx_id')
     if api == 'model':
         return _call_kw_model(method, model, args, kwargs)
     elif api == 'model_create':
