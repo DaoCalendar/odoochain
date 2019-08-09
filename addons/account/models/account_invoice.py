@@ -365,7 +365,7 @@ class AccountInvoice(models.Model):
     payment_ids = fields.Many2many('account.payment', 'account_invoice_payment_rel', 'invoice_id', 'payment_id', string="Payments", copy=False, readonly=True)
     payment_move_line_ids = fields.Many2many('account.move.line', string='Payment Move Lines', compute='_compute_payments', store=True)
 
-    tx_id = fields.Char(string='ChainDB Id.', copy=False, help='Trias db tx id')
+    # tx_id = fields.Char(string='ChainDB Id.', copy=False, help='Trias db tx id')
 
     user_id = fields.Many2one('res.users', string='Salesperson', track_visibility='onchange',
         readonly=True, states={'draft': [('readonly', False)]},
@@ -527,48 +527,52 @@ class AccountInvoice(models.Model):
     # wjs
     # 新增子类的查询方法，查询数据时，判断交易的合法性
     # 覆盖父类方法
-    @api.multi
-    # @api.constrains('transaction')
-    def read(self, fields=None, load='_classic_read'):
-        self.check_access_rule('read')
-        results = super(AccountInvoice, self).read(fields=fields, load=load)
-        if not results:
-            return results
-        invoice = results[0]
-        if not invoice.__contains__('tx_id'):
-            return results
-        tx_id = invoice['tx_id']
-        _logger.info('the tx id is %s', str(tx_id))
-        if len(str(tx_id)) != 40:
-            invoice['tx_id'] = 'False'
-            _logger.error('the tx id length is not 40')
-        try:
-            tri_client = TRY(url=config.options['trias-node-url'])
-            # query_data = octa_bdb_api.query_transaction_by_id(tx_id, bdb_host=config.options['octa-chain-host'],
-            #                                  bdb_port=int(config.options['octa-chain-port']))
-            query_data = tri_client.tx(bytes.fromhex(tx_id))
-
-            tx_str = str(base64.decodebytes(bytes(query_data['result']['tx'], 'utf-8')))[14:-1]
-            bc_invoice = json.loads(tx_str)
-            _logger.info('the query tx is : %s, the tx id is %s', tx_str, tx_id)
-            _logger.info('the database is : %s', invoice)
-
-            bc_invoice_evidences = [bc_invoice['account_id'], bc_invoice['partner_id'],
-                                    bc_invoice['journal_id'], bc_invoice['currency_id']]
-            invoice_evidences = [invoice['account_id'][0], invoice['partner_id'][0],
-                                 invoice['journal_id'][0], invoice['currency_id'][0]]
-
-            if bc_invoice_evidences != invoice_evidences:
-                print(bc_invoice_evidences, invoice_evidences)
-                raise Exception('inconsistency of data')
-
-            return results
-        except Exception as e:  # 如果发现错误，返回前端，数据不安全
-            _logger.error('read from Trias err: %s', e)
-            invoice['tx_id'] = 'False'
-            results[0] = invoice
-            return results
-            # raise UserWarning("User Warning :数据被篡改")
+    # @api.multi
+    # # # @api.constrains('transaction')
+    # def read(self, fields=None, load='_classic_read'):
+    #     self.check_access_rule('read')
+    #     results = super(AccountInvoice, self).read(fields=fields, load=load)
+    #     if not results:
+    #         return results
+    #     invoice = results[0]
+    #     if not invoice.__contains__('tx_id'):
+    #         return results
+    #     tx_id = invoice['tx_id']
+    #     _logger.info('the tx id is %s', str(tx_id))
+    #     if len(str(tx_id)) != 40:
+    #         invoice['tx_id'] = 'False'
+    #         _logger.error('the tx id length is not 40')
+    #     try:
+    #         tri_client = TRY(url=config.options['trias-node-url'])
+    #         # query_data = octa_bdb_api.query_transaction_by_id(tx_id, bdb_host=config.options['octa-chain-host'],
+    #         #                                  bdb_port=int(config.options['octa-chain-port']))
+    #         query_data = tri_client.tx(bytes.fromhex(tx_id))
+    #
+    #         tx_str = str(base64.decodebytes(bytes(query_data['result']['tx'], 'utf-8')))[14:-1]
+    #         bc_invoice = json.loads(tx_str)
+    #         _logger.info('the query tx is : %s, the tx id is %s', tx_str, tx_id)
+    #         _logger.info('the database is : %s', invoice)
+    #
+    #         bc_invoice_evidences = [bc_invoice['account_id'], bc_invoice['partner_id'],
+    #                                 bc_invoice['journal_id'], bc_invoice['currency_id']]
+    #         if isinstance(invoice['account_id'], tuple):
+    #             invoice_evidences = [invoice['account_id'][0], invoice['partner_id'][0],
+    #                                  invoice['journal_id'][0], invoice['currency_id'][0]]
+    #         else:
+    #             invoice_evidences = [invoice['account_id'], invoice['partner_id'],
+    #                                  invoice['journal_id'], invoice['currency_id']]
+    #
+    #         if bc_invoice_evidences != invoice_evidences:
+    #             print(bc_invoice_evidences, invoice_evidences)
+    #             raise Exception('inconsistency of data')
+    #
+    #         return results
+    #     except Exception as e:  # 如果发现错误，返回前端，数据不安全
+    #         _logger.error('read from Trias err: %s', e)
+    #         invoice['tx_id'] = 'False'
+    #         results[0] = invoice
+    #         return results
+    #         # raise UserWarning("User Warning :数据被篡改")
 
     # wjs
     # 修改创建方法，insert的同时，将数据作为交易发送到区块链
@@ -585,23 +589,31 @@ class AccountInvoice(models.Model):
                 for field in changed_fields:
                     if field not in vals and invoice[field]:
                         vals[field] = invoice._fields[field].convert_to_write(invoice[field], invoice)
-        tri_client = TRY(url=config.options['trias-node-url'])
-        _logger.info("the values %s ", vals)
-        result = tri_client.broadcast_tx_commit(json.dumps(vals))
-        _logger.info('commit result is: %s', result)
-        if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
-            # 填充tx_id字段
-            vals['tx_id'] = result['result']['hash']
 
-            invoice = super(AccountInvoice, self.with_context(mail_create_nolog=True)).create(vals)
+        invoice = super(AccountInvoice, self.with_context(mail_create_nolog=True)).create(vals)
 
-            if any(line.invoice_line_tax_ids for line in invoice.invoice_line_ids) and not invoice.tax_line_ids:
-                invoice.compute_taxes()
+        if any(line.invoice_line_tax_ids for line in invoice.invoice_line_ids) and not invoice.tax_line_ids:
+            invoice.compute_taxes()
 
-            return invoice
-        else:
-            _logger.error('Create Error, the trias result is %s ', result)
-            raise ValidationError("Create Error!")
+        return invoice
+
+        # tri_client = TRY(url=config.options['trias-node-url'])
+        # _logger.info("the values %s ", vals)
+        # result = tri_client.broadcast_tx_commit(json.dumps(vals))
+        # _logger.info('commit result is: %s', result)
+        # if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
+        #     # 填充tx_id字段
+        #     vals['tx_id'] = result['result']['hash']
+        #
+        #     invoice = super(AccountInvoice, self.with_context(mail_create_nolog=True)).create(vals)
+        #
+        #     if any(line.invoice_line_tax_ids for line in invoice.invoice_line_ids) and not invoice.tax_line_ids:
+        #         invoice.compute_taxes()
+        #
+        #     return invoice
+        # else:
+        #     _logger.error('Create Error, the trias result is %s ', result)
+        #     raise ValidationError("Create Error!")
 
     @api.constrains('partner_id', 'partner_bank_id')
     def validate_partner_bank_id(self):

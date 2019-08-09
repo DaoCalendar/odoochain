@@ -1092,6 +1092,8 @@ actual arch.
             if field in fields:
                 fields[field].update(fields_def[field])
             else:
+                if field == 'tx_id':
+                    continue
                 message = _("Field `%(field_name)s` does not exist") % dict(field_name=field)
                 self.raise_view_error(message, view_id)
 

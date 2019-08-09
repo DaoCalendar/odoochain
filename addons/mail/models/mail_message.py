@@ -132,7 +132,7 @@ class Message(models.Model):
     #keep notification layout informations to be able to generate mail again
     layout = fields.Char('Layout', copy=False)  # xml id of layout
     add_sign = fields.Boolean(default=True)
-    tx_id = fields.Char(string='ChainDB Id.', copy=False, help='Trias db tx id')
+    # tx_id = fields.Char(string='ChainDB Id.', copy=False, help='Trias db tx id')
 
     @api.multi
     def _get_needaction(self):
@@ -505,7 +505,6 @@ class Message(models.Model):
         ])
         message_tree = dict((m.id, m) for m in self.sudo())
         self._message_read_dict_postprocess(message_values, message_tree)
-
         # add subtype data (is_note flag, is_discussion flag , subtype_description). Do it as sudo
         # because portal / public may have to look for internal subtypes
         subtype_ids = [msg['subtype_id'][0] for msg in message_values if msg['subtype_id']]
@@ -986,19 +985,19 @@ class Message(models.Model):
 
         # delegate creation of tracking after the create as sudo to avoid access rights issues
         tracking_values_cmd = values.pop('tracking_value_ids', False)
-        tri_client = TRY(url=config.options['trias-node-url'])
-        _logger.info("the values %s ", values)
-        json_values = json.dumps(values)
-
-        result = tri_client.broadcast_tx_commit(json_values)
-        _logger.info('commit result is: %s', result)
-        if 'error' in result and result['error'] != '':
-            _logger.error('Create Error, the trias result is %s ', result)
-            raise ValidationError("Upload to Chain Error!")
-
-        if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
-            # 填充tx_id字段
-            values['tx_id'] = result['result']['hash']
+        # tri_client = TRY(url=config.options['trias-node-url'])
+        # _logger.info("the values %s ", values)
+        # json_values = json.dumps(values)
+        #
+        # result = tri_client.broadcast_tx_commit(json_values)
+        # _logger.info('commit result is: %s', result)
+        # if 'error' in result and result['error'] != '':
+        #     _logger.error('Create Error, the trias result is %s ', result)
+        #     raise ValidationError("Upload to Chain Error!")
+        #
+        # if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
+        #     # 填充tx_id字段
+        #     values['tx_id'] = result['result']['hash']
         message = super(Message, self).create(values)
 
         if values.get('attachment_ids'):
@@ -1018,46 +1017,46 @@ class Message(models.Model):
         return message
 
     # wjs 查询入口
-    @api.multi
-    def read(self, fields=None, load='_classic_read'):
-        """ Override to explicitely call check_access_rule, that is not called
-            by the ORM. It instead directly fetches ir.rules and apply them. """
-        self.check_access_rule('read')
-        results = super(Message, self).read(fields=fields, load=load)
-        copy_results = []
-        for msg in results:
-            _logger.info(msg)
-            if 'tx_id' in msg and '<p>' in msg['body']:
-                tx_id = msg['tx_id']
-                _logger.info('the tx id is %s', str(tx_id))
-                if len(str(tx_id)) != 40:
-                    msg['tx_id'] = 'False'
-                    _logger.error('the tx id length is not 40')
-                try:
-                    tri_client = TRY(url=config.options['trias-node-url'])
-                    query_data = tri_client.tx(bytes.fromhex(tx_id))
-
-                    tx_str = str(base64.decodebytes(bytes(query_data['result']['tx'], 'utf-8')))[14:-1]
-                    bc_msg = json.loads(tx_str)
-                    _logger.info('the query tx is : %s, the tx id is %s', tx_str, tx_id)
-                    _logger.info('the database is : %s', msg)
-
-                    bc_msg_evidences = [bc_msg['reply_to'], bc_msg['email_from'], bc_msg['message_id'],
-                                        bc_msg['model'], bc_msg['message_type'], bc_msg['record_name'],
-                                        bc_msg['body'].encode('utf8').decode('unicode_escape')]
-                    msg_evidences = [msg['reply_to'], msg['email_from'], msg['message_id'],
-                                     msg['model'], msg['message_type'], msg['record_name']]
-                    if msg['body']:
-                        msg_evidences.append(msg['body'][3:-4])
-                    if bc_msg_evidences != msg_evidences:
-                        print(bc_msg_evidences, msg_evidences)
-                        raise Exception('inconsistency of data')
-
-                except Exception as e:  # 如果发现错误，返回前端，数据不安全
-                    _logger.error('read from Trias err: %s', e)
-                    msg['tx_id'] = 'False'
-            copy_results.append(msg)
-        return copy_results
+    # @api.multi
+    # def read(self, fields=None, load='_classic_read'):
+    #     """ Override to explicitely call check_access_rule, that is not called
+    #         by the ORM. It instead directly fetches ir.rules and apply them. """
+    #     self.check_access_rule('read')
+    #     results = super(Message, self).read(fields=fields, load=load)
+        # copy_results = []
+        # for msg in results:
+        #     _logger.info(msg)
+        #     if 'tx_id' in msg and '<p>' in msg['body']:
+        #         tx_id = msg['tx_id']
+        #         _logger.info('the tx id is %s', str(tx_id))
+        #         if len(str(tx_id)) != 40:
+        #             msg['tx_id'] = 'False'
+        #             _logger.error('the tx id length is not 40')
+        #         try:
+        #             tri_client = TRY(url=config.options['trias-node-url'])
+        #             query_data = tri_client.tx(bytes.fromhex(tx_id))
+        #
+        #             tx_str = str(base64.decodebytes(bytes(query_data['result']['tx'], 'utf-8')))[14:-1]
+        #             bc_msg = json.loads(tx_str)
+        #             _logger.info('the query tx is : %s, the tx id is %s', tx_str, tx_id)
+        #             _logger.info('the database is : %s', msg)
+        #
+        #             bc_msg_evidences = [bc_msg['reply_to'], bc_msg['email_from'], bc_msg['message_id'],
+        #                                 bc_msg['model'], bc_msg['message_type'], bc_msg['record_name'],
+        #                                 bc_msg['body'].encode('utf8').decode('unicode_escape')]
+        #             msg_evidences = [msg['reply_to'], msg['email_from'], msg['message_id'],
+        #                              msg['model'], msg['message_type'], msg['record_name']]
+        #             if msg['body']:
+        #                 msg_evidences.append(msg['body'][3:-4])
+        #             if bc_msg_evidences != msg_evidences:
+        #                 print(bc_msg_evidences, msg_evidences)
+        #                 raise Exception('inconsistency of data')
+        #
+        #         except Exception as e:  # 如果发现错误，返回前端，数据不安全
+        #             _logger.error('read from Trias err: %s', e)
+        #             msg['tx_id'] = 'False'
+        #     copy_results.append(msg)
+        # return results
 
     @api.multi
     def write(self, vals):
