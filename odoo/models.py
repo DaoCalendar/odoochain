@@ -2746,7 +2746,13 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
         """
         # check access rights
         self.check_access_rights('read')
+        if not fields or ('tx_id' not in fields):
+            is_tx_id = 0
+        else:
+            is_tx_id = 1
         fields = self.check_field_access_rights('read', fields)
+        if 'tx_id' in fields and is_tx_id == 0:
+            fields.remove('tx_id')
 
         # split fields into stored and computed fields
         stored, inherited, computed = [], [], []
@@ -2779,7 +2785,12 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
         self = self.with_prefetch(self._prefetch.copy())
         data = [(record, {'id': record._ids[0]}) for record in self]
         use_name_get = (load == '_classic_read')
-        for name in (stored + inherited + computed):
+        names = (stored + inherited + computed)
+        if len(self) != 1:
+            if 'tx_id' in names:
+                names.remove('tx_id')
+
+        for name in names:
             convert = self._fields[name].convert_to_read
             # restrict the prefetching of self's model to self; this avoids
             # computing fields on a larger recordset than self
