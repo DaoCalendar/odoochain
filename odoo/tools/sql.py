@@ -3,6 +3,7 @@
 
 import logging
 import psycopg2
+from odoo.tools import config
 
 _schema = logging.getLogger('odoo.schema')
 
@@ -49,6 +50,11 @@ def table_kind(cr, tablename):
 def create_model_table(cr, tablename, comment=None):
     """ Create the table for a model. """
     cr.execute('CREATE TABLE "{}" (id SERIAL NOT NULL, PRIMARY KEY(id))'.format(tablename))
+    upload_tables = config.options['upload_tables']
+    if tablename in upload_tables:
+        is_column = column_exists(cr, tablename, 'tx_id')
+        if not is_column:
+            cr.execute('ALTER TABLE "{}" ADD COLUMN "{}" {}'.format(tablename, 'tx_id', 'varchar'))
     if comment:
         cr.execute('COMMENT ON TABLE "{}" IS %s'.format(tablename), (comment,))
     _schema.debug("Table %r: created", tablename)
@@ -75,6 +81,11 @@ def column_exists(cr, tablename, columnname):
 def create_column(cr, tablename, columnname, columntype, comment=None):
     """ Create a column with the given type. """
     cr.execute('ALTER TABLE "{}" ADD COLUMN "{}" {}'.format(tablename, columnname, columntype))
+    upload_tables = config.options['upload_tables']
+    if tablename in upload_tables:
+        is_column = column_exists(cr, tablename, 'tx_id')
+        if not is_column:
+            cr.execute('ALTER TABLE "{}" ADD COLUMN "{}" {}'.format(tablename, 'tx_id', 'varchar'))
     if comment:
         cr.execute('COMMENT ON COLUMN "{}"."{}" IS %s'.format(tablename, columnname), (comment,))
     _schema.debug("Table %r: added column %r of type %s", tablename, columnname, columntype)

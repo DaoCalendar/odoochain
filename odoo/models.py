@@ -23,6 +23,7 @@
 
 import datetime
 
+import base64
 import collections
 import dateutil
 import functools
@@ -59,6 +60,7 @@ from .tools.misc import CountingStream, clean_context, DEFAULT_SERVER_DATETIME_F
 from .tools.safe_eval import safe_eval
 from .tools.translate import _
 from .tools import date_utils
+from odoo.tools.trias_rpc_client import TRY
 
 _logger = logging.getLogger(__name__)
 _schema = logging.getLogger(__name__ + '.schema')
@@ -2744,10 +2746,24 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
         """
         # check access rights
         self.check_access_rights('read')
+        if not fields or ('tx_id' not in fields):
+            is_tx_id = 0
+        else:
+            is_tx_id = 1
         fields = self.check_field_access_rights('read', fields)
+        if 'tx_id' in fields and is_tx_id == 0:
+            fields.remove('tx_id')
 
         # split fields into stored and computed fields
         stored, inherited, computed = [], [], []
+
+        upload_tables = config.options['upload_tables']
+        if self._table in upload_tables:
+            if 'tx_id' in fields:
+                if not self._fields.get('tx_id'):
+                    from . import fields as odoo_fields
+                    self._add_field('tx_id', odoo_fields.Char())
+
         for name in fields:
             field = self._fields.get(name)
             if field:
@@ -2769,18 +2785,34 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
         self = self.with_prefetch(self._prefetch.copy())
         data = [(record, {'id': record._ids[0]}) for record in self]
         use_name_get = (load == '_classic_read')
-        for name in (stored + inherited + computed):
+        names = (stored + inherited + computed)
+        if len(self) != 1 and self._table != 'mail_message':
+            if 'tx_id' in names:
+                names.remove('tx_id')
+
+        for name in names:
             convert = self._fields[name].convert_to_read
             # restrict the prefetching of self's model to self; this avoids
             # computing fields on a larger recordset than self
             self._prefetch[self._name] = set(self._ids)
-
             for record, vals in data:
                 # missing records have their vals empty
                 if not vals:
                     continue
                 try:
                     vals[name] = convert(record[name], record, use_name_get)
+                    if name == 'tx_id':
+                        tri_client = TRY(url=config.options['trias-node-url'])
+
+                        try:
+                            query_data = tri_client.tx(bytes.fromhex(vals['tx_id']))
+
+                            tx_str = str(base64.decodebytes(bytes(query_data['result']['tx'], 'utf-8')))[14:-1]
+                            # bc_msg = json.loads(tx_str)
+                            _logger.info('the query tx is : %s, the tx id is %s', tx_str, vals[name])
+                        except Exception as e:
+                            _logger.error(e)
+                            vals[name] = 'False'
                     # if name == 'tx_id':
                     #     # show = True
                     #     _logger.info("tx id --------------------------------===============")
@@ -3406,7 +3438,6 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
                 cr.execute(query, params + [sub_ids])
                 if cr.rowcount != len(sub_ids):
                     raise MissingError(_('One of the records you are trying to modify has already been deleted (Document type: %s).') % self._description)
-
             for name in updated:
                 field = self._fields[name]
                 if callable(field.translate):
@@ -3494,7 +3525,6 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
         # classify fields for each record
         data_list = []
         inversed_fields = set()
-
         for vals in vals_list:
             # add missing defaults
             vals = self._add_missing_default_values(vals)
@@ -3505,6 +3535,13 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
             data['inversed'] = inversed = {}
             data['inherited'] = inherited = defaultdict(dict)
             data['protected'] = protected = set()
+
+            # add tx_id to self._fields
+            if 'tx_id' in vals:
+                # data['tx_id'] = vals['tx_id']
+                from . import fields
+                self._add_field('tx_id', fields.Char(string='ChainDB Id.', copy=False, help='Trias db tx id'))
+
             for key, val in vals.items():
                 if key in bad_names:
                     continue
@@ -3624,7 +3661,9 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
             columns0.append(('write_date', "%s", AsIs("(now() at time zone 'UTC')")))
 
             # 自动增加这4行之外，再增加一行：tx_id
-            # columns0.append(('tx_id', "%s", self._uid))
+            upload_tables = config.options['upload_tables']
+            if self._table in upload_tables:
+                columns0.append(('tx_id', "%s", data_list[0].get('tx_id', '')))
 
         for data in data_list:
             # determine column values
@@ -4578,7 +4617,6 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
             context = dict(self._context)
             del context['active_test']
             records = records.with_context(context)
-
         result = records.read(fields)
         if len(result) <= 1:
             return result

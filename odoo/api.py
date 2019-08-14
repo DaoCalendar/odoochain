@@ -45,6 +45,7 @@ __all__ = [
     'call_kw',
 ]
 
+import json
 import logging
 from collections import defaultdict, Mapping
 from contextlib import contextmanager
@@ -56,7 +57,9 @@ from decorator import decorate, decorator
 from werkzeug.local import Local, release_local
 
 from odoo.tools import frozendict, classproperty, StackMap, pycompat
-from odoo.exceptions import CacheMiss
+from odoo.exceptions import CacheMiss, ValidationError
+from odoo.tools import config
+from odoo.tools.trias_rpc_client import TRY
 
 _logger = logging.getLogger(__name__)
 
@@ -447,9 +450,35 @@ def model_create_single(method):
 
 def _model_create_multi(create, self, arg):
     # 'create' expects a list of dicts and returns a recordset
+
     if isinstance(arg, Mapping):
-        return create(self, [arg])
+        return create(self, [wapper_arg(self, arg)])
+    arg = [wapper_arg(self, arg[0])] if arg else arg
     return create(self, arg)
+
+
+def wapper_arg(self, arg):
+    upload_tables = config.options['upload_tables']
+    if self._table in upload_tables:
+        tri_client = TRY(url=config.options['trias-node-url'])
+        _logger.info("the values %s ", arg)
+        json_values = None
+        try:
+            json_values = json.dumps(arg)
+        except Exception as e:
+            _logger.warning(e)
+
+        if json_values:
+            result = tri_client.broadcast_tx_commit(json_values)
+            _logger.info('commit result is: %s', result)
+            if 'error' in result and result['error'] != '':
+                _logger.error('Create Error, the trias result is %s ', result)
+                raise ValidationError("Upload to Chain Error!")
+
+            if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
+                # 填充tx_id字段
+                arg['tx_id'] = result['result']['hash']
+    return arg
 
 
 def model_create_multi(method):
@@ -741,6 +770,9 @@ def call_kw(model, name, args, kwargs):
     """ Invoke the given method ``name`` on the recordset ``model``. """
     method = getattr(type(model), name)
     api = getattr(method, '_api', None)
+    upload_tables = config.options['upload_tables']
+    if name == 'read' and model._table in upload_tables:
+        args[1].append('tx_id')
     if api == 'model':
         return _call_kw_model(method, model, args, kwargs)
     elif api == 'model_create':
