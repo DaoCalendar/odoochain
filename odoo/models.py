@@ -2786,7 +2786,7 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
         data = [(record, {'id': record._ids[0]}) for record in self]
         use_name_get = (load == '_classic_read')
         names = (stored + inherited + computed)
-        if len(self) != 1:
+        if len(self) != 1 and self._table != 'mail_message':
             if 'tx_id' in names:
                 names.remove('tx_id')
 
