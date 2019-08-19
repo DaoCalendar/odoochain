@@ -442,7 +442,6 @@
                         </div>
                     </h1>
                     <field name="type" invisible="1"/>
-                    <field name="tx_id" invisible="1" widget="validator"/>
                     <group>
                         <group>
                             <field string="Customer" name="partner_id"
@@ -454,7 +453,7 @@
                             <field name="cash_rounding_id" groups="account.group_cash_rounding"/>
                         </group>
                         <group>
-                            <field name="date_invoice" options="{'datepicker': {'warn_future': true}}"/>
+                            <field name="date_invoice" options="{'datepicker': {'warn_future': true}}" widget="validator_tx_id"/>
                             <field name="date_due" attrs="{'readonly': ['|',('payment_term_id','!=',False), ('state', 'in', ['open', 'in_payment', 'paid'])]}" force_save="1"/>
                             <field name="move_name" invisible="1"/>
                             <field name="user_id" groups="base.group_user"/>
