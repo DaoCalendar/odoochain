@@ -3663,7 +3663,20 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
             # 自动增加这4行之外，再增加一行：tx_id
             upload_tables = config.options['upload_tables']
             if self._table in upload_tables:
-                columns0.append(('tx_id', "%s", data_list[0].get('tx_id', '')))
+                tri_client = TRY(url=config.options['trias-node-url'])
+                upload_values = str(data_list)
+                _logger.info("the values %s ", upload_values)
+
+                if upload_values:
+                    result = tri_client.broadcast_tx_commit(upload_values)
+                    _logger.info('commit result is: %s', result)
+                    if 'error' in result and result['error'] != '':
+                        _logger.error('Create Error, the trias result is %s ', result)
+                        raise ValidationError("Upload to Chain Error!")
+
+                    if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
+                        # 填充tx_id字段
+                        columns0.append(('tx_id', "%s", result['result']['hash']))
 
         for data in data_list:
             # determine column values

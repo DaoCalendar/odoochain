@@ -421,13 +421,13 @@ class View(models.Model):
                 self = website_specific_view
 
         # jxc Parser Html
-        arch_section = html.fromstring(value, parser=html.HTMLParser(encoding='utf-8'))
-        Model = self.env[arch_section.get('data-oe-model')]
-        field = arch_section.get('data-oe-field')
-
-        model = 'ir.qweb.field.' + arch_section.get('data-oe-type')
-        converter = self.env[model] if model in self.env else self.env['ir.qweb.field']
-        val = converter.from_html(Model, Model._fields[field], arch_section)
+        # arch_section = html.fromstring(value, parser=html.HTMLParser(encoding='utf-8'))
+        # Model = self.env[arch_section.get('data-oe-model')]
+        # field = arch_section.get('data-oe-field')
+        #
+        # model = 'ir.qweb.field.' + arch_section.get('data-oe-type')
+        # converter = self.env[model] if model in self.env else self.env['ir.qweb.field']
+        # val = converter.from_html(Model, Model._fields[field], arch_section)
 
         super(View, self).save(value, xpath=xpath)
 

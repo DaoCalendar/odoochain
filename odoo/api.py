@@ -452,33 +452,34 @@ def _model_create_multi(create, self, arg):
     # 'create' expects a list of dicts and returns a recordset
 
     if isinstance(arg, Mapping):
-        return create(self, [wapper_arg(self, arg)])
-    arg = [wapper_arg(self, arg[0])] if arg else arg
+        # return create(self, [wapper_arg(self, arg)])
+        return create(self, [arg])
+    # arg = [wapper_arg(self, arg[0])] if arg else arg
     return create(self, arg)
 
 
-def wapper_arg(self, arg):
-    upload_tables = config.options['upload_tables']
-    if self._table in upload_tables:
-        tri_client = TRY(url=config.options['trias-node-url'])
-        _logger.info("the values %s ", arg)
-        json_values = None
-        try:
-            json_values = json.dumps(arg)
-        except Exception as e:
-            _logger.warning(e)
-
-        if json_values:
-            result = tri_client.broadcast_tx_commit(json_values)
-            _logger.info('commit result is: %s', result)
-            if 'error' in result and result['error'] != '':
-                _logger.error('Create Error, the trias result is %s ', result)
-                raise ValidationError("Upload to Chain Error!")
-
-            if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
-                # 填充tx_id字段
-                arg['tx_id'] = result['result']['hash']
-    return arg
+# def wapper_arg(self, arg):
+#     upload_tables = config.options['upload_tables']
+#     if self._table in upload_tables:
+#         tri_client = TRY(url=config.options['trias-node-url'])
+#         _logger.info("the values %s ", arg)
+#         json_values = None
+#         try:
+#             json_values = json.dumps(arg)
+#         except Exception as e:
+#             _logger.warning(e)
+#
+#         if json_values:
+#             result = tri_client.broadcast_tx_commit(json_values)
+#             _logger.info('commit result is: %s', result)
+#             if 'error' in result and result['error'] != '':
+#                 _logger.error('Create Error, the trias result is %s ', result)
+#                 raise ValidationError("Upload to Chain Error!")
+#
+#             if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
+#                 # 填充tx_id字段
+#                 arg['tx_id'] = result['result']['hash']
+#     return arg
 
 
 def model_create_multi(method):
