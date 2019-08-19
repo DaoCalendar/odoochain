@@ -18,7 +18,6 @@ odoo.define('web.validate_fields', function (require) {
             if(tx_id && tx_id === 'False'){
                 this.do_warn('区块链验证错误！');
             }
-            this.do_warn(tx_id);
         }
     })
 
