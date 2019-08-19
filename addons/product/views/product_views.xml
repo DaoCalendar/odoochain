@@ -18,7 +18,7 @@
                     <field name='product_variant_count' invisible='1'/>
                     <field name='is_product_variant' invisible='1'/>
                     <field name='attribute_line_ids' invisible='1'/>
-                    <field name="id" invisible="True"/>
+                    <field name="id" invisible="True" widget="validator_tx_id"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="toggle_active" type="object"
                                 class="oe_stat_button" icon="fa-archive">
@@ -30,7 +30,6 @@
                     <div class="oe_title">
                         <label class="oe_edit_only" for="name" string="Product Name"/>
                         <h1><field name="name" placeholder="Product Name"/></h1>
-                        <field name="tx_id" invisible="1" widget="product_validator"/>
                         <div name="options" groups="base.group_user">
                             <div>
                                 <field name="sale_ok"/>
