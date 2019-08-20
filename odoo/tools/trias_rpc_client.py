@@ -3,26 +3,26 @@ import binascii
 from requests.adapters import HTTPAdapter
 
 
-def hex_prefix(value):
-    if value[:2] == b'0x':
-        return value
-    return b'0x'+value
-
-
-def to_hex(value):
-    if isinstance(value, bytes):
-        return hex_prefix(binascii.hexlify(value))
-    if isinstance(value, str):
-        return hex_prefix(binascii.hexlify(value.encode('utf-8')))
-    if isinstance(value, int):
-        return value
-
-
-def convert_args(args):
-    args = args or {}
-    for k,v in args.items():
-        args[k] = to_hex(v)
-    return args
+# def hex_prefix(value):
+#     if value[:2] == b'0x':
+#         return value
+#     return b'0x'+value
+#
+#
+# def to_hex(value):
+#     if isinstance(value, bytes):
+#         return hex_prefix(binascii.hexlify(value))
+#     if isinstance(value, str):
+#         return hex_prefix(binascii.hexlify(value.encode('utf-8')))
+#     if isinstance(value, int):
+#         return value
+#
+#
+# def convert_args(args):
+#     args = args or {}
+#     for k,v in args.items():
+#         args[k] = to_hex(v)
+#     return args
 
 
 class TRY(object):
@@ -34,12 +34,12 @@ class TRY(object):
     def call(self, name, args=None):
         # TODO 判断超时时间
         endpoint = '{}{}'.format(self.url, name)
-        payload = convert_args(args)
+        # payload = convert_args(args)
         s = requests.Session()
         s.mount('http://', HTTPAdapter(max_retries=3, pool_connections=100, pool_maxsize=100))
         s.keep_alive = False
         try:
-            result = s.get(endpoint, params=payload, timeout=5)
+            result = s.get(endpoint, params=args, timeout=5)
             return result.json()
         except Exception as e:
             print('trias_rpc_client ,call ,Error parsing response: {}'.format(e))
@@ -52,7 +52,7 @@ class TRY(object):
         return self.call('tri_block_info', {'height': height})
 
     def tx(self, hash):
-        return self.call('tri_block_tx', {'hash': hash})
+        return self.call('tri_block_tx', {'hash': '0x' + hash})
 
     def commit(self, height):
         return self.call('tri_bc_tx_commit', {'height': height})

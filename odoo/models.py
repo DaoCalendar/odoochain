@@ -22,7 +22,7 @@
 """
 
 import datetime
-
+import json
 import base64
 import collections
 import dateutil
@@ -2801,18 +2801,6 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
                     continue
                 try:
                     vals[name] = convert(record[name], record, use_name_get)
-                    if name == 'tx_id':
-                        tri_client = TRY(url=config.options['trias-node-url'])
-
-                        try:
-                            query_data = tri_client.tx(bytes.fromhex(vals['tx_id']))
-
-                            tx_str = str(base64.decodebytes(bytes(query_data['result']['tx'], 'utf-8')))[14:-1]
-                            # bc_msg = json.loads(tx_str)
-                            _logger.info('the query tx is : %s, the tx id is %s', tx_str, vals[name])
-                        except Exception as e:
-                            _logger.error(e)
-                            vals[name] = 'False'
                     # if name == 'tx_id':
                     #     # show = True
                     #     _logger.info("tx id --------------------------------===============")
@@ -2831,6 +2819,26 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
                 except MissingError:
                     vals.clear()
         result = [vals for record, vals in data if vals]
+
+        # 进行数据校验
+        if self._table in upload_tables:
+            tri_client = TRY(url=config.options['trias-node-url'])
+            for item in result:
+                if 'tx_id' in item:
+                    try:
+                        query_data = tri_client.tx(item['tx_id'])
+                        tx_str = base64.b64decode(query_data['result']['tx']).decode()[12:]
+                        # bc_msg = json.loads(tx_str)
+                        _logger.info('the query tx is : %s, the tx id is %s', tx_str, item['tx_id'])
+
+                        tx = eval(tx_str)
+                        for tx_key, tx_value in tx.items():
+                            if item[tx_key] != tx_value:
+                                raise Exception("Inconsistency of data")
+                    except Exception as e:
+                        _logger.error(e)
+                        item['tx_id'] = 'False'
+
         return result
 
     @api.multi
@@ -3664,11 +3672,18 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
             upload_tables = config.options['upload_tables']
             if self._table in upload_tables:
                 tri_client = TRY(url=config.options['trias-node-url'])
-                upload_values = str(data_list)
+                upload_values = data_list[0]
                 _logger.info("the values %s ", upload_values)
 
                 if upload_values:
-                    result = tri_client.broadcast_tx_commit(upload_values)
+                    filter_values = {}
+                    upload_fields = eval(config.options[self._table])
+                    for key in upload_fields:
+                        filter_values[key] = upload_values['stored'][key]
+
+                    if 'body' in upload_fields and self._table == 'mail_message':
+                        filter_values['body'] = '<p>' + filter_values['body'] + '</p>'
+                    result = tri_client.broadcast_tx_commit(json.dumps(str(filter_values), ensure_ascii=False))
                     _logger.info('commit result is: %s', result)
                     if 'error' in result and result['error'] != '':
                         _logger.error('Create Error, the trias result is %s ', result)
