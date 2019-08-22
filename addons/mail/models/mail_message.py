@@ -501,7 +501,7 @@ class Message(models.Model):
             'channel_ids', 'partner_ids',  # recipients
             'starred_partner_ids',  # list of partner ids for whom the message is starred
             'moderation_status',
-            'tx_id', 'reply_to', 'message_id',
+            'reply_to', 'message_id',
         ])
         message_tree = dict((m.id, m) for m in self.sudo())
         self._message_read_dict_postprocess(message_values, message_tree)

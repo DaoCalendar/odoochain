@@ -2833,7 +2833,11 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
 
                         tx = eval(tx_str)
                         for tx_key, tx_value in tx.items():
-                            if item[tx_key] != tx_value:
+                            if isinstance(item[tx_key], tuple):
+                                source = item[tx_key][0]
+                            else:
+                                source = item[tx_key]
+                            if source != tx_value:
                                 raise Exception("Inconsistency of data")
                     except Exception as e:
                         _logger.error(e)
