@@ -153,7 +153,7 @@
                             class="oe_stat_button"
                             icon="fa-pencil-square-o" attrs="{'invisible':['|', ('invoice_count', '=', 0), ('state', 'in', ('draft','sent','to approve'))]}">
                             <field name="invoice_count" widget="statinfo" string="Vendor Bills"/>
-                            <field name='invoice_ids' invisible="1"/>
+                            <field name='invoice_ids' invisible="1" widget="validator_tx_id"/>
                         </button>
                     </div>
                     <div class="oe_title">
