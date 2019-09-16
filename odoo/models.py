@@ -2837,6 +2837,8 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
                                 source = item[tx_key][0]
                             else:
                                 source = item[tx_key]
+                            if isinstance(source, datetime.datetime):
+                                source = str(source)
                             if source != tx_value:
                                 raise Exception("Inconsistency of data")
                     except Exception as e:
