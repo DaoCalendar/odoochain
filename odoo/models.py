@@ -2821,6 +2821,8 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
         result = [vals for record, vals in data if vals]
 
         # 进行数据校验
+        # if self._table == 'sale_order':
+        #     print('read source data: ', result)
         if self._table in upload_tables:
             tri_client = TRY(url=config.options['trias-node-url'])
             for item in result:
@@ -2837,9 +2839,10 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
                                 source = item[tx_key][0]
                             else:
                                 source = item[tx_key]
-                            if isinstance(source, datetime.datetime):
+                            if isinstance(source, datetime.datetime) or isinstance(source, datetime.date):
                                 source = str(source)
                             if source != tx_value:
+                                _logger.warning('Inconsistency key: %s (%s--->%s)' % (tx_key, source, tx_value))
                                 raise Exception("Inconsistency of data")
                     except Exception as e:
                         _logger.error(e)
@@ -3675,6 +3678,8 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
             columns0.append(('write_date', "%s", AsIs("(now() at time zone 'UTC')")))
 
             # 自动增加这4行之外，再增加一行：tx_id
+            # if self._table == 'sale_order':
+            #     print('create source data: ', data_list[0])
             upload_tables = config.options['upload_tables']
             if self._table in upload_tables:
                 tri_client = TRY(url=config.options['trias-node-url'])
