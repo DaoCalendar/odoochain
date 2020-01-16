@@ -3698,10 +3698,18 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
                     _logger.info('commit result is: %s', result)
                     if 'error' in result and result['error'] != '':
                         _logger.error('Create Error, the trias result is %s ', result)
-                        raise ValidationError("Upload to Chain Error!")
+                        if 'data' in result['error']:
+                            # 'Timed out waiting for tx(eb84f8f311b02a6ffdfae2d33ee986def301ae509bcfb8f1f1e51407924d098e) to be included in a block'
+                            re_result = re.match(r'Timed out waiting for tx\((.*)\) to be included in a block', result['error']['data'])
+                            if re_result:
+                                columns0.append(('tx_id', "%s", re_result.group(1)))
+                            else:
+                                raise ValidationError("Upload to Chain Error!")
+                        else:
+                            raise ValidationError("Upload to Chain Error!")
 
                     # if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
-                    if result['code'] == 0 and ('hash' in result['result']) and result['result']['hash']:
+                    elif result['code'] == 0 and ('hash' in result['result']) and result['result']['hash']:
                         # 填充tx_id字段
                         columns0.append(('tx_id', "%s", result['result']['hash']))
 
