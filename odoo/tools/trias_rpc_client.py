@@ -39,7 +39,7 @@ class TRY(object):
         s.mount('http://', HTTPAdapter(max_retries=3, pool_connections=100, pool_maxsize=100))
         s.keep_alive = False
         try:
-            result = s.get(endpoint, params=args, timeout=5)
+            result = s.get(endpoint, params=args, timeout=10)
             return result.json()
         except Exception as e:
             print('trias_rpc_client ,call ,Error parsing response: {}'.format(e))

@@ -3700,7 +3700,8 @@ class BaseModel(MetaModel('DummyModel', (object,), {'_register': False})):
                         _logger.error('Create Error, the trias result is %s ', result)
                         raise ValidationError("Upload to Chain Error!")
 
-                    if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
+                    # if result['result']['check_tx']['code'] == 0 and result['result']['deliver_tx']['code'] == 0:
+                    if result['code'] == 0 and ('hash' in result['result']) and result['result']['hash']:
                         # 填充tx_id字段
                         columns0.append(('tx_id', "%s", result['result']['hash']))
 
